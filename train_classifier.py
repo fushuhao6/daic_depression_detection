@@ -66,11 +66,12 @@ def predict(model, dataloader, device):
     print(f"Test || Accuracy: {accuracy * 100:.2f}")
 
 
-def finetune(epochs, train_dataloader, val_dataloader, model, optimizer, device, model_name):
+def finetune(epochs, train_dataloader, val_dataloader, model, optimizer, device, model_name, patience=10):
     criterion = nn.BCEWithLogitsLoss()
 
     best_accuracy = 0.0
     best_epoch = -1
+    patience_counter = 0
     for epoch in range(epochs):
         model.train()
 
@@ -117,6 +118,14 @@ def finetune(epochs, train_dataloader, val_dataloader, model, optimizer, device,
             best_accuracy = accuracy
             best_epoch = epoch + 1
             torch.save(model.state_dict(), f'outputs/{model_name}_best_model.pth')
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
+        # Check if we need to stop early
+        if patience_counter >= patience:
+            print(f"Early stopping at epoch {epoch + 1} due to no improvement in validation MSE for {patience} consecutive epochs.")
+            break
 
     torch.save(model.state_dict(), f'outputs/{model_name}_last_model.pth')
     print(f"Best accuracy: {best_accuracy:.4f} on Epoch {best_epoch}")
