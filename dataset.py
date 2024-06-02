@@ -95,6 +95,40 @@ class BertDataset(Dataset):
         }
 
 
+class BertClassifierDataset(BertDataset):
+    def __init__(self, data_file, tokenizer, max_length=512, text_tag='Transcript', augmentation=False):
+        super(BertClassifierDataset, self).__init__(data_file, tokenizer, max_length, text_tag, augmentation)
+
+    def __getitem__(self, index):
+        cur_data = self.data[index]
+
+        text = self.get_text(cur_data)
+        if self.augmentation:
+            text = synonym_replacement(text, n=self.max_replace_word)
+
+        label = cur_data['Real']
+
+        inputs = self.tokenizer.encode_plus(
+            text,
+            None,
+            truncation=True,
+            padding='max_length',
+            max_length=self.max_length,
+            add_special_tokens=True,
+            return_attention_mask=True,
+        )
+        ids = inputs["input_ids"]
+        token_type_ids = inputs["token_type_ids"]
+        mask = inputs["attention_mask"]
+
+        return {
+            'ids': torch.tensor(ids, dtype=torch.long),
+            'mask': torch.tensor(mask, dtype=torch.long),
+            'token_type_ids': torch.tensor(token_type_ids, dtype=torch.long),
+            'label': torch.tensor(label, dtype=torch.long),
+        }
+
+
 if __name__ == '__main__':
     from torch.utils.data import DataLoader, ConcatDataset
     use_synthetic = True

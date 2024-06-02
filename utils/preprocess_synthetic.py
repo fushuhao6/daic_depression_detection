@@ -5,11 +5,12 @@ import pandas as pd
 
 
 if __name__ == '__main__':
+    split = 'train'
     data_root = '/data/synthetic_DAIC'
     synthetic_file = ['syntheticTranscriptAndSynopsis.csv']
-    json_file = 'synthetic.json'
+    json_file = f'synthetic_{split}.json'
 
-    train_json_file = '/data/DAIC/train.json'
+    train_json_file = f'/data/DAIC/{split}.json'
     with open(train_json_file, 'r') as f:
         train_data = json.load(f)
     train_ids = [d['Participant_ID'] for d in train_data]

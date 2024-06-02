@@ -1,118 +1,116 @@
 import os
 import torch
+import argparse
 import numpy as np
 import transformers
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from tqdm import tqdm
-from dataset import BertDataset
+from dataset import BertClassifierDataset
 from model import BERT, LongformerClassifier
 from sklearn.metrics import accuracy_score
-from sklearn.utils.class_weight import compute_class_weight
 
 
 def evaluate_model(model, dataloader, device):
     model.eval()
 
     all_preds = []
-    all_score_preds = []
     all_labels = []
-    all_score_labels = []
 
     with torch.no_grad():
         for batch in dataloader:
             ids = batch['ids'].to(device)
             mask = batch['mask'].to(device)
             token_type_ids = batch['token_type_ids'].to(device)
-            scores = batch['target'].to(device)     # Shape: (batch_size, 8), with each element from 0 to 3
-            binary_labels = batch['binary_target'].unsqueeze(1).to(device)     # Shape: (batch_size, 1)
+            labels = batch['label'].unsqueeze(1).to(device)     # Shape: (batch_size, 1)
 
-            optimizer.zero_grad()
-
-            outputs = model(ids, mask, token_type_ids)  # Shape: (batch_size, 33)
-
-            output_preds = outputs[:, 0].unsqueeze(1)   # Shape: (batch_size, 1)
-            output_scores = outputs[:, 1:]              # Shape: (batch_size, 32)
-            # Reshape outputs and labels to calculate loss for each task
-            output_scores = output_scores.reshape(-1, 4)  # Shape: (batch_size * 8, 4)
-            scores = scores.view(-1)  # Shape: (batch_size * 8)
-
-            # Score accuracy
-            _, score_preds = torch.max(output_scores, dim=1)  # Get the index of the max log-probability
-            all_score_preds.extend(score_preds.view(-1).cpu().numpy())
-            all_score_labels.extend(scores.view(-1).cpu().numpy())
+            outputs = model(ids, mask, token_type_ids)  # Shape: (batch_size, 1)
 
             # Label accuracy
-            output_preds = output_preds > 0
+            output_preds = outputs > 0
 
-            all_labels.extend(binary_labels.view(-1).cpu().numpy())
-            all_preds.extend(output_preds.view(-1).float().cpu().numpy())
+            all_labels.extend(labels.view(-1).cpu().numpy())
+            all_preds.extend(output_preds.view(-1).int().cpu().numpy())
 
     # Compute metrics
     accuracy = accuracy_score(all_labels, all_preds)
-    score_accuracy = accuracy_score(all_score_labels, all_score_preds)
-    return accuracy, score_accuracy
+    return accuracy
 
-def finetune(epochs, train_dataloader, val_dataloader, model, criterion, score_criterion, optimizer, device, model_name, score_loss_weight=1.):
+
+def predict(model, dataloader, device):
+    model.eval()
+
+    all_preds = []
+    all_labels = []
+
+    with torch.no_grad():
+        for batch in dataloader:
+            ids = batch['ids'].to(device)
+            mask = batch['mask'].to(device)
+            token_type_ids = batch['token_type_ids'].to(device)
+            labels = batch['label'].unsqueeze(1).to(device)     # Shape: (batch_size, 1)
+
+            outputs = model(ids, mask, token_type_ids)  # Shape: (batch_size, 1)
+
+            # Label accuracy
+            output_preds = outputs > 0
+
+            print(f"Predicted label: {output_preds.int().item()}; Ground Truth Label: {labels.item()}")
+
+            all_labels.extend(labels.view(-1).cpu().numpy())
+            all_preds.extend(output_preds.view(-1).int().cpu().numpy())
+
+    # Compute metrics
+    accuracy = accuracy_score(all_labels, all_preds)
+    print(f"Test || Accuracy: {accuracy * 100:.2f}")
+
+
+def finetune(epochs, train_dataloader, val_dataloader, model, optimizer, device, model_name):
+    criterion = nn.BCEWithLogitsLoss()
+
     best_accuracy = 0.0
     best_epoch = -1
     for epoch in range(epochs):
         model.train()
 
         all_preds = []
-        all_score_preds = []
         all_labels = []
-        all_score_labels = []
         all_losses = []
         loop = tqdm(enumerate(train_dataloader), leave=False, total=len(train_dataloader))
         for batch, dl in loop:
             ids = dl['ids'].to(device)
             token_type_ids = dl['token_type_ids'].to(device)
             mask = dl['mask'].to(device)
-            scores = dl['target'].to(device)     # Shape: (batch_size, 8), with each element from 0 to 3
-            binary_labels = dl['binary_target'].unsqueeze(1).to(device)     # Shape: (batch_size, 1)
+            labels = dl['label'].unsqueeze(1).to(device)     # Shape: (batch_size, 1)
 
             optimizer.zero_grad()
 
-            outputs = model(ids, mask, token_type_ids)  # Shape: (batch_size, 33)
+            outputs = model(ids, mask, token_type_ids)  # Shape: (batch_size, 1)
 
-            output_preds = outputs[:, 0].unsqueeze(1)   # Shape: (batch_size, 1)
-            output_scores = outputs[:, 1:]              # Shape: (batch_size, 32)
-            # Reshape outputs and labels to calculate loss for each task
-            output_scores = output_scores.reshape(-1, 4)  # Shape: (batch_size * 8, 4)
-            scores = scores.view(-1)  # Shape: (batch_size * 8)
-
-            loss = criterion(output_preds, binary_labels.float()) + score_loss_weight * score_criterion(output_scores, scores)
+            loss = criterion(outputs, labels.float())
             all_losses.append(loss.item())
 
             loss.backward()
             optimizer.step()
 
-            # Score accuracy
-            _, score_preds = torch.max(output_scores, dim=1)  # Get the index of the max log-probability
-            all_score_preds.extend(score_preds.view(-1).cpu().numpy())
-            all_score_labels.extend(scores.view(-1).cpu().numpy())
-            score_accuracy = accuracy_score(all_score_labels, all_score_preds)
-
             # Label accuracy
-            output_preds = output_preds > 0
+            output_preds = outputs > 0
 
-            all_labels.extend(binary_labels.view(-1).cpu().numpy())
-            all_preds.extend(output_preds.view(-1).float().cpu().numpy())
+            all_labels.extend(labels.view(-1).cpu().numpy())
+            all_preds.extend(output_preds.view(-1).int().cpu().numpy())
             accuracy = accuracy_score(all_labels, all_preds)
 
             # Show progress while training
             loop.set_description(f'Epoch={epoch+1}/{epochs}')
-            loop.set_postfix(loss=loss.item(), acc=accuracy, score_acc=score_accuracy)
+            loop.set_postfix(loss=loss.item(), acc=accuracy)
 
         accuracy = accuracy_score(all_labels, all_preds)
-        score_accuracy = accuracy_score(all_score_labels, all_score_preds)
-        print(f'Epoch {epoch+1}/{epochs} Accuracy: {accuracy * 100:.2f}; Score Accuracy: {score_accuracy * 100:.2f}; Loss: {np.mean(all_losses):.2f}')
+        print(f'Epoch {epoch+1}/{epochs} Accuracy: {accuracy * 100:.2f}; Loss: {np.mean(all_losses):.2f}')
 
         # Evaluate the model
-        accuracy, score_accuracy = evaluate_model(model, val_dataloader, device)
-        print(f"Eval Epoch {epoch+1}/{epochs} || Accuracy: {accuracy * 100:.2f}; Score Accuracy: {score_accuracy * 100:.2f}")
+        accuracy = evaluate_model(model, val_dataloader, device)
+        print(f"Eval Epoch {epoch+1}/{epochs} || Accuracy: {accuracy * 100:.2f}")
 
         # Save the model if the current accuracy is the best
         if accuracy > best_accuracy:
@@ -126,42 +124,64 @@ def finetune(epochs, train_dataloader, val_dataloader, model, criterion, score_c
     return model
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Script to train a model with various configurations.")
+
+    parser.add_argument('--n_epoch', type=int, default=1000, help='Number of epochs for training.')
+    parser.add_argument('--lr', type=float, default=1e-5, help='Learning rate.')
+    parser.add_argument('--weight_decay', type=float, default=1e-2, help='Weight decay.')
+    parser.add_argument('--dropout', type=float, default=0.0, help='Dropout rate in the last layer.')
+    parser.add_argument('--batch_size', type=int, default=8, help='Batch size for training.')
+    parser.add_argument('--model_name', type=str, default='bert', choices=['bert', 'longformer'],
+                        help='Model name to use for training.')
+    parser.add_argument('--text_tag', nargs='+', default=['Synopsis', 'Sentiment'], help='List of text tags to use.')
+    parser.add_argument('--max_length', type=int, default=512, help='Maximum sequence length for the model.')
+    parser.add_argument('--gpu', type=str, default='0', help='Choose which gpu to use.')
+    parser.add_argument('--eval', action='store_true', default=False, help='Evaluation mode on test dataset')
+
+    args = parser.parse_args()
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+
+    # Set max_length based on model_name
+    if args.model_name == 'longformer':
+        args.max_length = 4096
+
+    return args
+
+
 if __name__ == '__main__':
-    n_epoch = 10
-    batch_size = 32
-    model_name = 'bert'
-    text_tag = 'Synopsis'       # 'Transcript', 'Synopsis', 'Sentiment'
-    score_loss_weight = 0.0
-    max_length = 4096 if model_name == 'longformer' else 512
+    args = parse_args()
+    model_save_name = 'Classifier_' + args.model_name + '_' + '_'.join(args.text_tag)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     os.makedirs('outputs', exist_ok=True)
-
-    train_file = '/data/DAIC/train.json'
-    val_file = '/data/DAIC/val.json'
     tokenizer = transformers.BertTokenizer.from_pretrained("bert-base-uncased")
-    train_dataset = BertDataset(train_file, tokenizer, max_length=max_length, text_tag=text_tag, augmentation=True)
-    val_dataset = BertDataset(val_file, tokenizer, max_length=max_length, text_tag=text_tag)
 
-    train_dataloader = DataLoader(dataset=train_dataset, batch_size=batch_size)
-    val_dataloader = DataLoader(dataset=val_dataset, batch_size=batch_size)
-
-    if model_name == 'longformer':
-        model = LongformerClassifier(num_classes=1).to(device)
+    if args.model_name == 'longformer':
+        model = LongformerClassifier(num_classes=1, dropout_prob=args.dropout).to(device)
     else:
-        model = BERT(num_classes=1, version='other').to(device)
-        for param in model.bert_model.parameters():
-            param.requires_grad = False
+        model = BERT(num_classes=1, dropout_prob=args.dropout).to(device)
 
-    # Compute class weights
-    labels = train_dataset.all_scores
-    class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(labels), y=labels)
-    class_weights = torch.tensor(class_weights, dtype=torch.float).to(device)
-    print(f"Score class weights: {class_weights}")
+    if args.eval:
+        # Load the state dictionary
+        model.load_state_dict(torch.load(f'outputs/{model_save_name}_best_model.pth'))
 
-    # Define the loss function with class weights
-    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2]).to(device))
-    score_criterion = nn.CrossEntropyLoss(weight=class_weights)
-    # Initialize Optimizer
-    optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-2)
+        test_file = '/data/synthetic_DAIC/classifier_test.json'
+        test_dataset = BertClassifierDataset(test_file, tokenizer, max_length=args.max_length, text_tag=args.text_tag)
+        test_dataloader = DataLoader(dataset=test_dataset, batch_size=1)
 
-    model = finetune(n_epoch, train_dataloader, val_dataloader, model, criterion, score_criterion, optimizer, device, model_name + '_' + text_tag, score_loss_weight=score_loss_weight)
+        predict(model, test_dataloader, device)
+
+    else:
+        train_file = '/data/synthetic_DAIC/classifier_train.json'
+        val_file = '/data/synthetic_DAIC/classifier_val.json'
+        train_dataset = BertClassifierDataset(train_file, tokenizer, max_length=args.max_length, text_tag=args.text_tag)
+        val_dataset = BertClassifierDataset(val_file, tokenizer, max_length=args.max_length, text_tag=args.text_tag)
+
+        train_dataloader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True)
+        val_dataloader = DataLoader(dataset=val_dataset, batch_size=args.batch_size)
+
+        # Initialize Optimizer
+        optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+
+        model = finetune(args.n_epoch, train_dataloader, val_dataloader, model, optimizer, device, model_save_name)

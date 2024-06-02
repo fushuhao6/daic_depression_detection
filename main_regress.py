@@ -12,7 +12,7 @@ from model import BERT, LongformerClassifier
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 
-def finetune_regression(epochs, train_dataloader, val_dataloader, model, optimizer, device, model_name, patience=50):
+def finetune_regression(epochs, train_dataloader, val_dataloader, model, optimizer, device, model_name, patience=100):
     best_mse = float('inf')
     best_epoch = -1
     patience_counter = 0
@@ -133,7 +133,7 @@ def predict(model, dataloader, device):
     rmse = np.sqrt(mse)
     mae = mean_absolute_error(all_labels, all_preds)
 
-    print(f"Test || MSE: {mse:.2f}; RMSE: {rmse:.2f}; MAE: {mae:.2f}")
+    print(f"Test || RMSE: {rmse:.2f}; MAE: {mae:.2f}")
 
 
 def parse_args():
@@ -143,7 +143,7 @@ def parse_args():
     parser.add_argument('--n_epoch', type=int, default=1000, help='Number of epochs for training.')
     parser.add_argument('--lr', type=float, default=1e-5, help='Learning rate.')
     parser.add_argument('--weight_decay', type=float, default=1e-2, help='Weight decay.')
-    parser.add_argument('--dropout', type=float, default=0.1, help='Dropout rate in the last layer.')
+    parser.add_argument('--dropout', type=float, default=0.0, help='Dropout rate in the last layer.')
     parser.add_argument('--batch_size', type=int, default=8, help='Batch size for training.')
     parser.add_argument('--model_name', type=str, default='bert', choices=['bert', 'longformer'],
                         help='Model name to use for training.')
