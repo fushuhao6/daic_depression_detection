@@ -1,12 +1,5 @@
 # Llama 3
 
-We are unlocking the power of large language models. Our latest version of Llama is now accessible to individuals, creators, researchers, and businesses of all sizes so that they can experiment, innovate, and scale their ideas responsibly.
-
-This release includes model weights and starting code for pre-trained and instruction-tuned Llama 3 language models — including sizes of 8B to 70B parameters.
-
-This repository is a minimal example of loading Llama 3 models and running inference. For more detailed examples, see [llama-recipes](https://github.com/facebookresearch/llama-recipes/).
-
-
 ## Installation
 
 This task was run on CUDA 12.1, Pytorch 1.12.1, and a nightly build of torchtune. To run this task, create an environment with the following command:
@@ -14,9 +7,9 @@ This task was run on CUDA 12.1, Pytorch 1.12.1, and a nightly build of torchtune
 conda env create -f llama3_env.yml
 ```
 
-## Finetuning
+Make sure you download the weights for Meta-Llama-3-8B-Instruct. this must be in a directory called Meta-Llama-3-8B-Instruct/.
 
-If you want to use the provided finetuned model, skip this step.
+## Finetuning
 
 To finetune using the default Llama3 weights, run:
 ```bash
