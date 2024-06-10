@@ -1,0 +1,43 @@
+# Model Arguments
+model:
+  _component_: torchtune.models.llama3.llama3_8b
+
+# Tokenizer
+tokenizer:
+  _component_: torchtune.models.llama3.llama3_tokenizer
+  # _component_: torchtune.modules.tokenizers.TikTokenTokenizer
+  path: ./Meta-Llama-3-8B-Instruct/tokenizer.model
+
+checkpointer:
+  _component_: torchtune.utils.FullModelMetaCheckpointer
+  checkpoint_dir: ./DAIC_finetune
+  checkpoint_files: [
+    meta_model.pt
+  ]
+  # checkpoint_dir: ./Meta-Llama-3-8B-Instruct/
+  # checkpoint_files: [
+  #   consolidated.00.pth
+  # ]
+  output_dir: ./DAIC_style_output
+  model_type: LLAMA3
+
+# Environment
+device: cuda
+dtype: bf16
+
+# Logging
+output_dir: ./DAIC_style_output
+metric_logger:
+  _component_: torchtune.utils.metric_logging.DiskLogger
+  log_dir: ${output_dir}
+  
+seed: null
+    
+temperature: 0.95 # 0.8 and 0.6 are popular values to try
+top_k: null
+# top_p: 0.95
+# min_p: 0.05
+dry_multiplier: 0.8
+repetition_penality: 1.175
+  
+quantizer: null
