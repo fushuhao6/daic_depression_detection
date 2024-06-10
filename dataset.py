@@ -10,7 +10,6 @@ import random
 
 nltk.download('wordnet')
 
-
 def synonym_replacement(sentence, n):
     words = sentence.split()
     new_words = words.copy()
@@ -30,7 +29,7 @@ def synonym_replacement(sentence, n):
 
 
 class BertDataset(Dataset):
-    def __init__(self, data_file, tokenizer, max_length=512, text_tag='Transcript', augmentation=False):
+    def __init__(self, data_file, tokenizer, max_length=512, text_tag='Synopsis', augmentation=False):
         super(BertDataset, self).__init__()
         self.data_file = data_file
         with open(data_file, 'r') as f:
@@ -51,8 +50,9 @@ class BertDataset(Dataset):
             score = d['PHQ8_Score'] if 'PHQ8_Score' in d else d['PHQ_Score']
             all_scores.append(score)
 
-        self.all_scores = np.array(all_scores)
-        print(f"Reading {len(self.data)} data from {os.path.basename(data_file)};\n\tMax length of {text_tag} is {max(transcript_length)}, Min length is {min(transcript_length)}")
+        self.all_scores = all_scores
+        print(f"Reading {len(self.data)} data from {os.path.basename(data_file)};\n\tMax length of {text_tag} is {max(transcript_length)}, "
+              f"Min length is {min(transcript_length)}, Avg length is {np.mean(transcript_length)}")
 
     def get_text(self, data):
         if isinstance(self.text_tag, list):
@@ -84,7 +84,7 @@ class BertDataset(Dataset):
             return_attention_mask=True,
         )
         ids = inputs["input_ids"]
-        token_type_ids = inputs["token_type_ids"]
+        token_type_ids = inputs.get("token_type_ids", [0] * len(ids))
         mask = inputs["attention_mask"]
 
         return {
@@ -131,21 +131,67 @@ class BertClassifierDataset(BertDataset):
 
 if __name__ == '__main__':
     from torch.utils.data import DataLoader, ConcatDataset
-    use_synthetic = True
-    data_file = '/data/DAIC/train.json'
-    synthetic_file = '/data/synthetic_DAIC/synthetic.json'
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import pandas as pd
+    train_file = '/data/DAIC/train.json'
+    val_file = '/data/DAIC/val.json'
+    test_file = '/data/DAIC/test.json'
+    synthetic_file = '/data/synthetic_DAIC/synthetic_train.json'
     tokenizer = transformers.BertTokenizer.from_pretrained("bert-base-uncased")
-    train_dataset = BertDataset(data_file, tokenizer, max_length=512)
-    all_scores = train_dataset.all_scores
+    train_dataset = BertDataset(train_file, tokenizer, max_length=512, text_tag=['Synopsis', 'Sentiment'])
+    train_scores = train_dataset.all_scores
 
-    if use_synthetic:
-        synthetic_dataset = BertDataset(synthetic_file, tokenizer)
-        all_scores = np.concatenate([all_scores, synthetic_dataset.all_scores])
+    val_dataset = BertDataset(val_file, tokenizer, max_length=512)
+    dev_scores = val_dataset.all_scores
 
-    print(all_scores.shape)
-    print(all_scores.mean())
-    print(all_scores.std())
+    test_dataset = BertDataset(test_file, tokenizer, max_length=512)
+    test_scores = test_dataset.all_scores
 
 
+    synthetic_dataset = BertDataset(synthetic_file, tokenizer)
+    syn_scores = synthetic_dataset.all_scores
 
-    # dataloader = DataLoader(dataset=dataset, batch_size=2)
+    # Create a DataFrame
+    data = {
+        'Score': train_scores + dev_scores + test_scores,
+        'Split': ['Train'] * len(train_scores) + ['Dev'] * len(dev_scores) + ['Test'] * len(test_scores)
+    }
+    df = pd.DataFrame(data)
+
+    # Plot
+    plt.figure(figsize=(10, 6))
+    sns.kdeplot(data=df, x='Score', hue='Split', fill=True, common_norm=False, alpha=0.5)
+    plt.xlabel('PHQ-8 Score', fontsize=18)
+    plt.ylabel('Density', fontsize=18)
+    plt.xlim([0, 24])
+    plt.tight_layout()
+
+    # Add custom x-tick labels
+    plt.xticks([0, 5, 10, 15, 20], ['Not significant', 'Mild', 'Moderate', 'Moderately severe', 'Severe'], fontsize=16)
+
+    # Show plot
+    plt.savefig("results/data_distribution.png")
+
+
+    # Create a DataFrame
+    data = {
+        'Score': train_scores + syn_scores + dev_scores + test_scores,
+        'Split': ['Train'] * (len(train_scores) + len(syn_scores)) + ['Dev'] * len(dev_scores) + ['Test'] * len(test_scores)
+    }
+    df = pd.DataFrame(data)
+
+    # Plot
+    plt.figure(figsize=(10, 6))
+    sns.kdeplot(data=df, x='Score', hue='Split', fill=True, common_norm=False, alpha=0.5)
+    plt.xlabel('PHQ-8 Score', fontsize=18)
+    plt.ylabel('Density', fontsize=18)
+    plt.xlim([0, 24])
+    plt.tight_layout()
+
+    # Add custom x-tick labels
+    plt.xticks([0, 5, 10, 15, 20], ['Not significant', 'Mild', 'Moderate', 'Moderately severe', 'Severe'], fontsize=16)
+
+    # Show plot
+    plt.savefig("results/data_distribution_with_synthetic.png")
+

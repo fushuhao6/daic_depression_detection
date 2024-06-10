@@ -1,27 +1,19 @@
 import transformers
+import torch
 import torch.nn as nn
 from transformers import LongformerModel, LongformerConfig
 
 
 class BERT(nn.Module):
-    def __init__(self, num_classes=1, version='bert', dropout_prob=0.5):
+    def __init__(self, num_classes=1, dropout_prob=0.5):
         super(BERT, self).__init__()
-        self.version = version
-        if version == 'bert':
-            self.bert_model = transformers.BertModel.from_pretrained("bert-base-uncased")
-        else:
-            self.bert_model = transformers.DistilBertModel.from_pretrained("distilbert-base-uncased")
+        self.bert_model = transformers.BertModel.from_pretrained("bert-base-uncased")
 
         self.dropout = nn.Dropout(dropout_prob)
         self.out = nn.Linear(768, num_classes)
 
     def forward(self, ids, mask, token_type_ids):
-        if self.version == 'bert':
-            _, o2 = self.bert_model(ids, attention_mask=mask, token_type_ids=token_type_ids, return_dict=False)
-        else:
-            outputs = self.bert_model(ids, attention_mask=mask, return_dict=False)
-            hidden_state = outputs[0]  # last hidden state
-            o2 = hidden_state[:, 0]  # [CLS] token
+        _, o2 = self.bert_model(ids, attention_mask=mask, token_type_ids=token_type_ids, return_dict=False)
 
         o2 = self.dropout(o2)
         out = self.out(o2)
@@ -42,4 +34,21 @@ class LongformerClassifier(nn.Module):
         o2 = outputs[0][:, 0, :]  # Take the output corresponding to the [CLS] token
         o2 = self.dropout(o2)
         out = self.out(o2)
+        return out
+
+
+class RoBERTa(nn.Module):
+    def __init__(self, num_classes=1, dropout_prob=0.5):
+        super(RoBERTa, self).__init__()
+        self.roberta_model = transformers.RobertaModel.from_pretrained("roberta-base")
+        self.dropout = nn.Dropout(dropout_prob)
+        self.out = nn.Linear(768, num_classes)
+
+    def forward(self, ids, mask, token_type_ids=None):
+        outputs = self.roberta_model(ids, attention_mask=mask)
+        hidden_state = outputs.last_hidden_state  # last hidden state
+        cls_token_state = hidden_state[:, 0]  # [CLS] token
+
+        cls_token_state = self.dropout(cls_token_state)
+        out = self.out(cls_token_state)
         return out
