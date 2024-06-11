@@ -8,7 +8,7 @@ This project aims to generate synthetic data using Large Language Models (LLMs) 
 ## Contents
 
 - [Final Presentation Slides](https://docs.google.com/presentation/d/1AuKcmJ6BOHA2_Y7Qfd1YHpVUiIo3O1aczWanN6UMaK8/edit?usp=sharing)
-- [Final Report](#)
+- [Final Report](https://drive.google.com/file/d/10XAz1vV6JOtnXTnJ5vMQA9PBNZ8WOIwX/view?usp=sharing)
 
 ## Branches
 
