@@ -27,7 +27,7 @@ This branch contains the code for fine-tuning the LLaMA 3 model and generating a
 
 1. Clone the repository:
 ```
-git clone https://github.com/yourusername/your-repo-name.git
+git clone https://github.com/fushuhao6/daic_depression_detection.git
 ```
 2. Checkout the desired branch:
 ```
