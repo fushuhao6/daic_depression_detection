@@ -9,9 +9,9 @@ tokenizer:
 
 checkpointer:
   _component_: torchtune.utils.FullModelMetaCheckpointer
-  checkpoint_dir: ./DAIC_finetune
+  checkpoint_dir: ./DAIC_finetuned
   checkpoint_files: [
-    meta_model.pt
+    meta_model_24.pt
   ]
   output_dir: ./DAIC_finetune_output
   model_type: LLAMA3
