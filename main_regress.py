@@ -150,11 +150,12 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Script to train a model with various configurations.")
 
     parser.add_argument('--datasets', nargs='+', default=['train'], help='Use training or synthetic data.')
-    parser.add_argument('--n_epoch', type=int, default=1000, help='Number of epochs for training.')
+    parser.add_argument('--data_root', type=str, default='/data/DAIC', help='Set up data root.')
+    parser.add_argument('--n_epoch', type=int, default=200, help='Number of epochs for training.')
     parser.add_argument('--lr', type=float, default=1e-5, help='Learning rate.')
     parser.add_argument('--weight_decay', type=float, default=1e-2, help='Weight decay.')
-    parser.add_argument('--dropout', type=float, default=0.0, help='Dropout rate in the last layer.')
-    parser.add_argument('--batch_size', type=int, default=8, help='Batch size for training.')
+    parser.add_argument('--dropout', type=float, default=0.2, help='Dropout rate in the last layer.')
+    parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training.')
     parser.add_argument('--model_name', type=str, default='bert', choices=['bert', 'longformer', 'roberta'],
                         help='Model name to use for training.')
     parser.add_argument('--text_tag', nargs='+', default=['Synopsis', 'Sentiment'], help='List of text tags to use.')
@@ -211,7 +212,7 @@ if __name__ == '__main__':
         model_version = 'last' if args.last else 'best'
         model.load_state_dict(torch.load(f'outputs/{model_save_name}_{model_version}_model.pth'))
 
-        test_file = '/data/DAIC/test.json'
+        test_file = os.path.join(args.data_root, 'test.json')
         test_dataset = BertDataset(test_file, tokenizer, max_length=args.max_length, text_tag=args.text_tag)
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=1)
 
@@ -220,10 +221,10 @@ if __name__ == '__main__':
         df.to_csv(f'results/{model_save_name}.csv', index=False)
     else:
         file_mapping = {
-            'train': '/data/DAIC/train.json',
-            'synthetic': '/data/synthetic_DAIC/synthetic_train.json'
+            'train': os.path.join(args.data_root, 'train.json'),
+            'synthetic': os.path.join(args.data_root.replace('DAIC', 'synthetic_DAIC'), 'synthetic_train.json')
         }
-        val_file = '/data/DAIC/val.json'
+        val_file = os.path.join(args.data_root, 'val.json')
         val_dataset = BertDataset(val_file, tokenizer, max_length=args.max_length, text_tag=args.text_tag)
 
         train_dataset = []

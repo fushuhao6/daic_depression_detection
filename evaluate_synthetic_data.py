@@ -3,17 +3,12 @@ import os
 import json
 import random
 import numpy as np
-import transformers
 from transformers import BertTokenizer, BertModel
 import torch
-from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import SentenceTransformer
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
-from scipy.stats import gaussian_kde
-from scipy.integrate import quad
 from sklearn.decomposition import PCA
-from sklearn.mixture import GaussianMixture
-from scipy.stats import entropy
 from scipy.spatial.distance import pdist, squareform, cosine, cdist
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
