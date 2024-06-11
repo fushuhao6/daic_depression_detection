@@ -25,7 +25,10 @@ output_dir: ./DAIC_style_output
 metric_logger:
   _component_: torchtune.utils.metric_logging.DiskLogger
   log_dir: ${output_dir}
-  
+
+prompt:
+  _component_: torchtune.datasets.chat_dataset
+  user: DAIC_llama_clean_data_all
 seed: null
     
 temperature: 0.95 # 0.8 and 0.6 are popular values to try
